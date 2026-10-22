@@ -1,0 +1,112 @@
+<main>
+  <header>
+    <h1>ElevenLabs voice + sentiment demo</h1>
+    <p class="muted">
+      Share a complaint, suggestion or comment with an ElevenLabs Agent; when you hang up, its post-call analysis rates the
+      sentiment and summarizes the feedback.
+    </p>
+  </header>
+
+  <section class="card">
+    <h2><span class="step">1</span> Setup</h2>
+    <p class="warn">
+      Demo only: your API key is used straight from the browser (kept in this tab's sessionStorage). Don't deploy this
+      publicly.
+    </p>
+    <label>
+      API key
+      <input type="password" autocomplete="off" placeholder="sk_…" [value]="settings.apiKey()" (change)="onKey($event)" />
+    </label>
+    <label>
+      Agent ID
+      <input type="text" autocomplete="off" placeholder="agent_…" [value]="settings.agentId()" (change)="onAgent($event)" />
+    </label>
+    <div class="row">
+      <button type="button" (click)="createAgent()" [disabled]="busy() || !settings.apiKey()">
+        {{ busy() ? 'Creating…' : 'Create demo agent' }}
+      </button>
+      <span class="muted">Creates a feedback-intermediary agent with sentiment analysis already configured. Re-create it after changing the agent definition.</span>
+    </div>
+    @if (setupError()) {
+      <p class="error" role="alert">{{ setupError() }}</p>
+    }
+  </section>
+
+  <section class="card">
+    <h2><span class="step">2</span> Talk</h2>
+    <div class="row">
+      @if (!inCall()) {
+        <button type="button" class="primary" (click)="startCall()" [disabled]="!ready() || analyzing()">Start call</button>
+      } @else {
+        <button type="button" class="danger" (click)="endCall()">End call</button>
+        <button type="button" (click)="convo.toggleMute()">{{ convo.muted() ? 'Unmute mic' : 'Mute mic' }}</button>
+        <span class="pill" [class.live]="convo.status() === 'connected'">
+          {{ convo.status() === 'connecting' ? 'connecting…' : convo.mode() === 'speaking' ? 'agent speaking' : 'listening to you' }}
+        </span>
+      }
+    </div>
+    @if (!ready()) {
+      <p class="muted">Add an API key and an agent to start.</p>
+    }
+    @if (convo.error()) {
+      <p class="error" role="alert">{{ convo.error() }}</p>
+    }
+    @if (convo.lines().length) {
+      <ul class="chat" aria-live="polite">
+        @for (line of convo.lines(); track $index) {
+          <li [class]="line.role"><b>{{ line.role === 'agent' ? 'Agent' : 'You' }}</b> {{ line.message }}</li>
+        }
+      </ul>
+    }
+    @if (!inCall() && !convo.lines().length && ready()) {
+      <p class="muted">
+        Tip: leave feedback about "Northwind Cloud", e.g. "The dashboard is painfully slow and my last invoice had
+        errors." or "I love how fast the new release is."
+      </p>
+    }
+  </section>
+
+  <section class="card">
+    <h2><span class="step">3</span> Sentiment</h2>
+    @if (analyzing()) {
+      <p class="muted">Analyzing the conversation… this usually takes a few seconds.</p>
+    }
+    @if (analysisError()) {
+      <p class="error" role="alert">{{ analysisError() }}</p>
+    }
+    @if (result(); as r) {
+      <div class="verdict">
+        <span class="badge" [attr.data-sentiment]="sentiment()">{{ sentiment() }}</span>
+        <span class="headline">– {{ summary() }}</span>
+      </div>
+      <h3>Full summary</h3>
+      <p>{{ r.analysis?.transcript_summary }}</p>
+
+      <h3>Extracted data</h3>
+      <dl>
+        @for (d of dataItems(); track d.id) {
+          <dt>{{ d.id }}</dt>
+          <dd>
+            {{ d.value }}
+            @if (d.rationale) {
+              <small class="muted"> — {{ d.rationale }}</small>
+            }
+          </dd>
+        }
+      </dl>
+
+      <h3>Evaluation criteria</h3>
+      <ul class="criteria">
+        @for (c of criteria(); track c.criteria_id) {
+          <li>
+            <span class="pill" [attr.data-result]="c.result">{{ c.result }}</span>
+            <b>{{ c.criteria_id }}</b>
+            <small class="muted">{{ c.rationale }}</small>
+          </li>
+        }
+      </ul>
+    } @else if (!analyzing() && !analysisError()) {
+      <p class="muted">The analysis appears here after you end a call.</p>
+    }
+  </section>
+</main>
